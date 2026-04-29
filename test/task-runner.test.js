@@ -6,10 +6,10 @@ describe('task runner', () => {
     const runTask = async (task) => {
       try {
         await task();
+        return { success: true };
       } catch (err) {
         return { success: false, error: err.message };
       }
-      return { success: true };
     };
 
     const failingTask = async () => {
