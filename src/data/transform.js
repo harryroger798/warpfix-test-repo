@@ -79,8 +79,6 @@ class DataPipeline {
   }
 }
 
-// BUG: deepMerge always overwrites nested objects instead of recursively merging
-// The condition check is inverted - when both are objects it should recurse but instead it overwrites
 function deepMerge(target, ...sources) {
   for (const source of sources) {
     for (const key of Object.keys(source)) {
@@ -92,8 +90,7 @@ function deepMerge(target, ...sources) {
         typeof target[key] === 'object' &&
         !Array.isArray(target[key])
       ) {
-        // BUG: overwrites instead of recursing - loses nested properties
-        target[key] = { ...source[key] };
+        deepMerge(target[key], source[key]);
       } else {
         target[key] = source[key];
       }
