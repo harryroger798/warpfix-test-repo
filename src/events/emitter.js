@@ -109,8 +109,8 @@ class TaskQueue {
           const task = this._queue.shift();
           this._running++;
 
-          task
-            .fn()
+          Promise.resolve()
+            .then(() => task.fn())
             .then((result) => {
               this._results.push({ status: 'fulfilled', value: result });
               this._emitter.emit('taskComplete', { result });
