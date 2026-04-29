@@ -1,1 +1,12 @@
-{"name":"warpfix-test-repo","version":"1.0.0","scripts":{"test":"node test.js","build":"echo build ok"}}
+{
+  "name": "warpfix-test-repo",
+  "version": "2.0.0",
+  "description": "Complex test project for WarpFix Intelligence Cloud",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "build": "node build.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
