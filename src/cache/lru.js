@@ -26,10 +26,9 @@ class LRUCache {
       return undefined;
     }
 
-    // BUG: Does NOT move to end (most recently used) - breaks LRU ordering
-    // Missing: this._map.delete(key); this._map.set(key, ...)
-    // Just updates lastAccess but doesn't reorder in the Map
-    entry.lastAccess = Date.now();
+    // Move to end (most recently used)
+    this._map.delete(key);
+    this._map.set(key, { ...entry, lastAccess: Date.now() });
     this._stats.hits++;
     return entry.value;
   }
@@ -38,9 +37,8 @@ class LRUCache {
     if (this._map.has(key)) {
       this._map.delete(key);
     } else if (this._map.size >= this._capacity) {
-      // BUG: Evicts LAST entry (most recently used) instead of FIRST (least recently used)
-      const entries = [...this._map.entries()];
-      const [evictedKey, evictedEntry] = entries[entries.length - 1];
+      // Evict least recently used (first entry in Map)
+      const [evictedKey, evictedEntry] = this._map.entries().next().value;
       this._map.delete(evictedKey);
       this._stats.evictions++;
       if (this._onEvict) {
