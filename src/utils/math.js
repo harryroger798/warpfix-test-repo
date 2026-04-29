@@ -30,7 +30,7 @@ function merge(left, right, comparator) {
   let i = 0, j = 0;
 
   while (i < left.length && j < right.length) {
-    if (comparator(left[i], right[j]) <= 0) {
+    if (comparator(left[i], right[j]) >= 0) {
       result.push(left[i++]);
     } else {
       result.push(right[j++]);
