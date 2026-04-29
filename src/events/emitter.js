@@ -116,10 +116,8 @@ class TaskQueue {
         this._results[index] = { status: 'rejected', reason };
       })
       .finally(() => {
-        // BUG: decrement AFTER calling _runNext creates race condition
-        // _runNext sees _running > 0 and doesn't resolve when queue is empty
-        this._runNext();
         this._running--;
+        this._runNext();
       });
   }
 }
