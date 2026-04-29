@@ -1,0 +1,1 @@
+{"name":"warpfix-test-repo","version":"1.0.0","scripts":{"test":"node test.js","build":"echo build ok"}}
