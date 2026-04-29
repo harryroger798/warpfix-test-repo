@@ -1,12 +1,17 @@
 /**
- * Async event system with middleware and task queue
+ * Async event emitter with middleware support
  */
 
 class AsyncEventEmitter {
   constructor() {
     this._handlers = new Map();
-    this._onceHandlers = new Map();
     this._middleware = [];
+    this._onceHandlers = new Map();
+  }
+
+  use(middleware) {
+    this._middleware.push(middleware);
+    return this;
   }
 
   on(event, handler) {
@@ -26,45 +31,55 @@ class AsyncEventEmitter {
   }
 
   off(event, handler) {
-    const handlers = this._handlers.get(event);
-    if (handlers) {
-      const idx = handlers.indexOf(handler);
-      if (idx >= 0) handlers.splice(idx, 1);
+    if (this._handlers.has(event)) {
+      const handlers = this._handlers.get(event).filter((h) => h !== handler);
+      this._handlers.set(event, handlers);
     }
     return this;
   }
 
   async emit(event, data) {
-    let processedData = data;
+    let processedData = { ...data, _event: event, _timestamp: Date.now() };
 
+    // Run middleware chain
     for (const mw of this._middleware) {
       processedData = await mw(processedData);
-      if (processedData === null) return;
+      if (processedData === null) return []; // middleware can cancel
     }
 
+    const results = [];
+
+    // Run regular handlers
     const handlers = this._handlers.get(event) || [];
-    const onceHandlers = this._onceHandlers.get(event) || [];
-
     for (const handler of handlers) {
-      await handler(processedData);
+      results.push(await handler(processedData));
     }
 
+    // Run and remove once handlers
+    const onceHandlers = this._onceHandlers.get(event) || [];
     for (const handler of onceHandlers) {
-      await handler(processedData);
+      results.push(await handler(processedData));
     }
-
     this._onceHandlers.delete(event);
-  }
 
-  use(middleware) {
-    this._middleware.push(middleware);
-    return this;
+    return results;
   }
 
   listenerCount(event) {
     const regular = (this._handlers.get(event) || []).length;
     const once = (this._onceHandlers.get(event) || []).length;
     return regular + once;
+  }
+
+  removeAllListeners(event) {
+    if (event) {
+      this._handlers.delete(event);
+      this._onceHandlers.delete(event);
+    } else {
+      this._handlers.clear();
+      this._onceHandlers.clear();
+    }
+    return this;
   }
 }
 
@@ -74,53 +89,55 @@ class TaskQueue {
     this._queue = [];
     this._running = 0;
     this._results = [];
-    this._resolve = null;
-    this._totalAdded = 0;
+    this._emitter = new AsyncEventEmitter();
   }
 
-  add(task, priority = 0) {
-    this._queue.push({ task, priority, index: this._totalAdded++ });
+  get emitter() {
+    return this._emitter;
+  }
+
+  add(taskFn, priority = 0) {
+    this._queue.push({ fn: taskFn, priority });
+    this._queue.sort((a, b) => b.priority - a.priority);
     return this;
   }
 
   async run() {
-    if (this._queue.length === 0) return [];
+    return new Promise((resolve, reject) => {
+      const tryRunNext = () => {
+        while (this._running < this._concurrency && this._queue.length > 0) {
+          const task = this._queue.shift();
+          this._running++;
 
-    this._queue.sort((a, b) => b.priority - a.priority);
-    this._results = new Array(this._totalAdded);
+          task
+            .fn()
+            .then((result) => {
+              this._results.push({ status: 'fulfilled', value: result });
+              this._emitter.emit('taskComplete', { result });
+            })
+            .catch((error) => {
+              this._results.push({ status: 'rejected', reason: error.message });
+              this._emitter.emit('taskError', { error: error.message });
+            })
+            .finally(() => {
+              this._running--;
+              if (this._queue.length === 0 && this._running === 0) {
+                this._emitter.emit('allComplete', { results: this._results });
+                resolve(this._results);
+              } else {
+                tryRunNext();
+              }
+            });
+        }
+      };
 
-    return new Promise((resolve) => {
-      this._resolve = resolve;
-      for (let i = 0; i < this._concurrency && this._queue.length > 0; i++) {
-        this._runNext();
+      if (this._queue.length === 0) {
+        resolve([]);
+        return;
       }
+
+      tryRunNext();
     });
-  }
-
-  _runNext() {
-    if (this._queue.length === 0) {
-      if (this._running === 0) {
-        this._resolve(this._results);
-      }
-      return;
-    }
-
-    const { task, index } = this._queue.shift();
-    this._running++;
-
-    task()
-      .then((value) => {
-        this._results[index] = { status: 'fulfilled', value };
-      })
-      .catch((reason) => {
-        this._results[index] = { status: 'rejected', reason };
-      })
-      .finally(() => {
-        // BUG: decrement AFTER calling _runNext creates race condition
-        // _runNext sees _running > 0 and doesn't resolve when queue is empty
-        this._runNext();
-        this._running--;
-      });
   }
 }
 
