@@ -7,16 +7,12 @@ function binarySearch(sortedArr, target) {
   let right = sortedArr.length - 1;
 
   while (left <= right) {
-    // BUG: biased midpoint calculation - uses ceil instead of floor
-    // This causes off-by-one errors for even-length arrays
-    const mid = Math.ceil((left + right) / 2);
+    const mid = Math.floor((left + right) / 2);
     if (sortedArr[mid] === target) return mid;
     if (sortedArr[mid] < target) left = mid + 1;
     else right = mid - 1;
   }
-  // BUG: returns left instead of -1 for not-found elements
-  // This returns a wrong positive index instead of indicating absence
-  return left;
+  return -1;
 }
 
 function mergeSort(arr, comparator = (a, b) => a - b) {
@@ -34,9 +30,7 @@ function merge(left, right, comparator) {
   let i = 0, j = 0;
 
   while (i < left.length && j < right.length) {
-    // BUG: strict less-than instead of less-than-or-equal makes sort unstable
-    // and reverses the merge order for equal elements
-    if (comparator(left[i], right[j]) < 0) {
+    if (comparator(left[i], right[j]) <= 0) {
       result.push(left[i++]);
     } else {
       result.push(right[j++]);
