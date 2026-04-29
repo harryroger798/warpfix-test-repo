@@ -90,6 +90,7 @@ function deepMerge(target, ...sources) {
         typeof target[key] === 'object' &&
         !Array.isArray(target[key])
       ) {
+        // Recursively merge nested objects instead of overwriting
         deepMerge(target[key], source[key]);
       } else {
         target[key] = source[key];
